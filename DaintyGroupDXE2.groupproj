@@ -1,0 +1,48 @@
+﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		<PropertyGroup>
+			<ProjectGuid>{CE176D45-2767-4150-B737-D72F170B25C3}</ProjectGuid>
+		</PropertyGroup>
+		<ItemGroup>
+			<Projects Include="UnitTests\DaintyUnitTests.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Packages\DaintyDXE2.dproj">
+				<Dependencies/>
+			</Projects>
+		</ItemGroup>
+		<ProjectExtensions>
+			<Borland.Personality>Default.Personality.12</Borland.Personality>
+			<Borland.ProjectType/>
+			<BorlandProject>
+				<Default.Personality/>
+			</BorlandProject>
+		</ProjectExtensions>
+		<Target Name="DaintyUnitTests">
+			<MSBuild Projects="UnitTests\DaintyUnitTests.dproj"/>
+		</Target>
+		<Target Name="DaintyUnitTests:Clean">
+			<MSBuild Projects="UnitTests\DaintyUnitTests.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="DaintyUnitTests:Make">
+			<MSBuild Projects="UnitTests\DaintyUnitTests.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="DaintyDXE2">
+			<MSBuild Projects="Packages\DaintyDXE2.dproj"/>
+		</Target>
+		<Target Name="DaintyDXE2:Clean">
+			<MSBuild Projects="Packages\DaintyDXE2.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="DaintyDXE2:Make">
+			<MSBuild Projects="Packages\DaintyDXE2.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Build">
+			<CallTarget Targets="DaintyUnitTests;DaintyDXE2"/>
+		</Target>
+		<Target Name="Clean">
+			<CallTarget Targets="DaintyUnitTests:Clean;DaintyDXE2:Clean"/>
+		</Target>
+		<Target Name="Make">
+			<CallTarget Targets="DaintyUnitTests:Make;DaintyDXE2:Make"/>
+		</Target>
+		<Import Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')" Project="$(BDS)\Bin\CodeGear.Group.Targets"/>
+	</Project>
