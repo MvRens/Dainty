@@ -5,10 +5,12 @@ program DaintyUnitTests;
 uses
   GUITestRunner,
   Dainty in '..\Source\Dainty.pas',
-  DaintyTests in 'DaintyTests.pas',
-  Dainty.ValueSetter.Default in '..\Source\Dainty.ValueSetter.Default.pas',
-  DaintyValueSetterTests in 'DaintyValueSetterTests.pas';
+  DaintyFieldsTests in 'DaintyFieldsTests.pas',
+  Dainty.Converter.Default in '..\Source\Dainty.Converter.Default.pas',
+  DaintyConverterTests in 'DaintyConverterTests.pas',
+  DaintyParamsTests in 'DaintyParamsTests.pas';
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   RunRegisteredTests;
 end.

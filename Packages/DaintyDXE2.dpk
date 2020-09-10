@@ -34,6 +34,6 @@ requires
 
 contains
   Dainty in '..\Source\Dainty.pas',
-  Dainty.ValueSetter.Default in '..\Source\Dainty.ValueSetter.Default.pas';
+  Dainty.Converter.Default in '..\Source\Dainty.Converter.Default.pas';
 
 end.

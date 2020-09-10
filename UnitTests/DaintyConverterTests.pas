@@ -1,4 +1,4 @@
-unit DaintyValueSetterTests;
+unit DaintyConverterTests;
 
 interface
 uses
@@ -11,7 +11,7 @@ uses
 
 
 type
-  TDaintyValueSetterTest = class(TTestCase)
+  TDaintyConverterTest = class(TTestCase)
   private
     FDataSet: TClientDataSet;
   protected
@@ -33,8 +33,8 @@ uses
   System.Variants;
 
 
-{ TDaintyValueSetterTest }
-procedure TDaintyValueSetterTest.SetUp;
+{ TDaintyConverterTest }
+procedure TDaintyConverterTest.SetUp;
 begin
   inherited SetUp;
 
@@ -42,7 +42,7 @@ begin
 end;
 
 
-procedure TDaintyValueSetterTest.TearDown;
+procedure TDaintyConverterTest.TearDown;
 begin
   FreeAndNil(FDataSet);
 
@@ -71,21 +71,24 @@ type
   end;
 
 
-  TCustomRecordValueSetterFactory = class(TDaintyAbstractValueSetterFactory)
+  TCustomRecordValueSetterFactory = class(TDaintyRttiConverterFactory)
   public
-    class function Construct(AMember: TDaintyRttiMember): TDaintyValueSetter; override;
+    class function Construct(AMember: TDaintyRttiMember; out AConverter: TDaintyConverter): Boolean; override;
   end;
 
 
 { TCustomRecordValueSetterFactory }
-class function TCustomRecordValueSetterFactory.Construct(AMember: TDaintyRttiMember): TDaintyValueSetter;
+class function TCustomRecordValueSetterFactory.Construct(AMember: TDaintyRttiMember; out AConverter: TDaintyConverter): Boolean;
 begin
+  Result := False;
   if AMember.RttiType.TypeKind <> tkRecord then
-    Exit(nil);
+    Exit;
 
   if AMember.RttiType.Handle = TypeInfo(TCustomRecord) then
   begin
-    Result :=
+    Result := True;
+
+    AConverter.FieldReader :=
       procedure(AInstance: TObject; AField: TField)
       var
         customRecord: TCustomRecord;
@@ -95,12 +98,24 @@ begin
         AMember.SetValue(AInstance, TValue.From(customRecord));
       end;
 
+    AConverter.ParamWriter :=
+      procedure(AInstance: TObject; AParam: TParam)
+      var
+        customRecord: TCustomRecord;
+
+      begin
+        customRecord := AMember.GetValue(AInstance).AsType<TCustomRecord>;
+        AParam.AsString := customRecord.Value;
+      end;
+
   { Unfortunately I have not found a way to make this generic, if you do let me know!
     The workaround is to handle all types you want to support explicitly, which is
     good enough for our use case with nullable implementations. }
   end else if AMember.RttiType.Handle = TypeInfo(TGenericCustomRecord<string>) then
   begin
-    Result :=
+    Result := True;
+
+    AConverter.FieldReader :=
       procedure(AInstance: TObject; AField: TField)
       var
         value: TGenericCustomRecord<string>;
@@ -109,11 +124,21 @@ begin
         value.Value := AField.AsString;
         AMember.SetValue(AInstance, TValue.From(value));
       end;
+
+    AConverter.ParamWriter :=
+      procedure(AInstance: TObject; AParam: TParam)
+      var
+        value: TGenericCustomRecord<string>;
+
+      begin
+        value := AMember.GetValue(AInstance).AsType<TGenericCustomRecord<string>>;
+        AParam.AsString := value.Value;
+      end;
   end;
 end;
 
 
-procedure TDaintyValueSetterTest.CustomRecordMapping;
+procedure TDaintyConverterTest.CustomRecordMapping;
 var
   row: TCustomRecordRow;
 
@@ -127,19 +152,22 @@ begin
   DataSet.Post;
 
 
-  TDaintyRttiMapperFactory.RegisterValueSetterFactory(TCustomRecordValueSetterFactory, 1);
+  TDaintyRttiMapperFactory.RegisterConverterFactory(TCustomRecordValueSetterFactory, 1);
   try
     DataSet.First;
     row := DataSet.GetFirst<TCustomRecordRow>;
-
-    CheckEquals('Hello world!', row.StringField.Value);
+    try
+      CheckEquals('Hello world!', row.StringField.Value);
+    finally
+      FreeAndNil(row);
+    end;
   finally
-    TDaintyRttiMapperFactory.UnregisterValueSetterFactory(TCustomRecordValueSetterFactory);
+    TDaintyRttiMapperFactory.UnregisterConverterFactory(TCustomRecordValueSetterFactory);
   end;
 end;
 
 
-procedure TDaintyValueSetterTest.GenericCustomRecordMapping;
+procedure TDaintyConverterTest.GenericCustomRecordMapping;
 var
   row: TGenericCustomRecordRow;
 
@@ -153,19 +181,22 @@ begin
   DataSet.Post;
 
 
-  TDaintyRttiMapperFactory.RegisterValueSetterFactory(TCustomRecordValueSetterFactory, 1);
+  TDaintyRttiMapperFactory.RegisterConverterFactory(TCustomRecordValueSetterFactory, 1);
   try
     DataSet.First;
     row := DataSet.GetFirst<TGenericCustomRecordRow>;
-
-    CheckEquals('Hello world!', row.StringField.Value);
+    try
+      CheckEquals('Hello world!', row.StringField.Value);
+    finally
+      FreeAndNil(row);
+    end;
   finally
-    TDaintyRttiMapperFactory.UnregisterValueSetterFactory(TCustomRecordValueSetterFactory);
+    TDaintyRttiMapperFactory.UnregisterConverterFactory(TCustomRecordValueSetterFactory);
   end;
 end;
 
 
 initialization
-  RegisterTest(TDaintyValueSetterTest.Suite);
+  RegisterTest(TDaintyConverterTest.Suite);
 
 end.

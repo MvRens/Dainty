@@ -40,11 +40,11 @@ uses
   System.Rtti,
   System.SysUtils,
 
-  Dainty.ValueSetter.Default;
+  Dainty.Converter.Default;
 
 
 type
-  TDaintyMapper<T: class> = class;
+  TDaintyReader<T: class> = class;
 
 
   /// <summary>
@@ -59,6 +59,14 @@ type
 
     property FieldName: string read FFieldName;
   end;
+
+
+  /// <summary>
+  ///  Alias for the FieldName attribute, if you prefer it for clarity.
+  ///  They are interchangable, so the same object can be used for both
+  ///  row retrieval and insert/update queries.
+  /// </summary>
+  ParamName = FieldName;
 
 
   /// <summary>
@@ -78,38 +86,92 @@ type
     /// <remarks>
     ///  Note that the DataSet is not reset to First and will instead start at the current record.
     /// </remarks>
-    function Rows<T: class>: TEnumerable<T>;
+    function Rows<T: class>: IEnumerable<T>;
 
     /// <summary>
-    ///  Provides access to the mapper which allows control over the DataSet loop.
+    ///  Provides access to the reader which allows control over the DataSet loop.
     /// </summary>
-    function GetMapper<T: class>: TDaintyMapper<T>;
+    function GetRowReader<T: class>: TDaintyReader<T>;
 
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Throws an exception if no
     ///  row is active.
     /// </summary>
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
     function GetFirst<T: class>: T;
 
     /// <summary>
-    ///  Returns the current row mapped to the specified class. Returns the value of
-    ///  ADefault if no row is active.
+    ///  Returns the current row mapped to the specified class. Returns nil if no row is active.
     /// </summary>
-    function GetFirstOrDefault<T: class>(const ADefault: T): T;
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
+    function GetFirstOrDefault<T: class>: T;
 
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Throws an exception if no
     ///  row is active or if more than one row is remaining.
     /// </summary>
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
     function GetSingle<T: class>: T;
 
     /// <summary>
-    ///  Returns the current row mapped to the specified class. Returns the value of
-    ///  ADefault if no row is active or if more than one row is remaining.
+    ///  Returns the current row mapped to the specified class. Returns nil if no row is active
+    ///  or if more than one row is remaining.
     /// </summary>
-    function GetSingleOrDefault<T: class>(const ADefault: T): T;
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
+    function GetSingleOrDefault<T: class>: T;
+  end;
+
+
+  TDaintyParamsMatching = (
+    /// <summary>
+    ///  All parameters must have a matching member and all members must have a matching parameter.
+    ///  This option is the most defensive, and ensures there are no mismatches either way.
+    /// </summary>
+    dpmExact,
+
+    /// <summary>
+    ///  All parameters must have a matching member. Extra members are allowed and ignored.
+    ///  This option will ensure the query has no missing parameters.
+    /// </summary>
+    dpmAllParams,
+
+    /// <summary>
+    ///  All members must have a matching parameter. Extra parameters are allowed and will not be set.
+    ///  This option can be used if some parameters are set elsewhere in code.
+    /// </summary>
+    dpmAllMembers,
+
+    /// <summary>
+    ///  Match members and parameters, allow missing or extra for either.
+    ///  I'm sure you have your reasons.
+    /// </summary>
+    dpmAny
+  );
+
+  /// <summary>
+  ///  Allows for direct calls to TDainty methods from any TParams instance, for example
+  ///  DataSet.Params.Apply().
+  /// </summary>
+  /// <remarks>
+  ///  Because class helpers are not exactly extension methods and only one can apply,
+  ///  if you're having conflicts you can call TDainty.ApplyParams(DataSet.Params, ...) instead.
+  /// </remarks>
+  TDaintyParamsHelpers = class helper for TParams
+  public
+    /// <summary>
+    ///  Sets the params using the members of AValue.
+    /// </summary>
+    procedure Apply<T: class>(AValue: T; AMatching: TDaintyParamsMatching = dpmExact);
   end;
 
 
@@ -125,38 +187,55 @@ type
     /// <remarks>
     ///  Note that the DataSet is not reset to First and will instead start at the current record.
     /// </remarks>
-    class function Rows<T: class>(ADataSet: TDataSet): TEnumerable<T>;
+    class function Rows<T: class>(ADataSet: TDataSet): IEnumerable<T>;
 
     /// <summary>
     ///  Provides access to the mapper which allows control over the DataSet loop.
     /// </summary>
-    class function GetMapper<T: class>(ADataSet: TDataSet): TDaintyMapper<T>;
+    class function GetRowReader<T: class>(ADataSet: TDataSet): TDaintyReader<T>;
 
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Throws an exception if no
     ///  row is active.
     /// </summary>
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
     class function GetFirst<T: class>(ADataSet: TDataSet): T;
 
     /// <summary>
-    ///  Returns the current row mapped to the specified class. Returns the value of
-    ///  ADefault if no row is active.
+    ///  Returns the current row mapped to the specified class. Returns nil if no row is active.
     /// </summary>
-    class function GetFirstOrDefault<T: class>(ADataSet: TDataSet; const ADefault: T): T;
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
+    class function GetFirstOrDefault<T: class>(ADataSet: TDataSet): T;
 
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Throws an exception if no
     ///  row is active or if more than one row is remaining.
     /// </summary>
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
     class function GetSingle<T: class>(ADataSet: TDataSet): T;
 
     /// <summary>
-    ///  Returns the current row mapped to the specified class. Returns the value of
-    ///  ADefault if no row is active or if more than one row is remaining.
+    ///  Returns the current row mapped to the specified class. Returns nil if no row is active
+    ///  or if more than one row is remaining.
     /// </summary>
-    class function GetSingleOrDefault<T: class>(ADataSet: TDataSet; const ADefault: T): T;
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
+    class function GetSingleOrDefault<T: class>(ADataSet: TDataSet): T;
+
+
+    /// <summary>
+    ///  Sets the params using the members of AValue.
+    /// </summary>
+    class procedure ApplyParams<T: class>(AParams: TParams; AValue: T; AMatching: TDaintyParamsMatching = dpmExact);
   end;
 
 
@@ -164,8 +243,14 @@ type
   /// <summary>
   ///  Performs the mapping of the current row to the specified type.
   /// </summary>
-  TDaintyMapper<T: class> = class
+  TDaintyReader<T: class> = class
   public
+    /// <summary>
+    ///  Maps the current row to a new object.
+    /// </summary>
+    /// <remarks>
+    ///  The caller must Free the returned object.
+    /// </remarks>
     function MapRow: T; virtual; abstract;
   end;
 
@@ -174,14 +259,18 @@ type
   ///  Enumerates over the rows of a DataSet and returns the mapped objects.
   ///  Returned by the Rows<> method.
   /// </summary>
-  TDaintyEnumerable<T: class> = class(TEnumerable<T>)
+  TDaintyEnumerable<T: class> = class(TInterfacedObject, IEnumerable<T>)
   private
-    FMapper: TDaintyMapper<T>;
+    FReader: TDaintyReader<T>;
     FDataSet: TDataSet;
-  protected
-    function DoGetEnumerator: TEnumerator<T>; override;
   public
-    constructor Create(AMapper: TDaintyMapper<T>; ADataSet: TDataSet);
+    constructor Create(AReader: TDaintyReader<T>; ADataSet: TDataSet);
+    destructor Destroy; override;
+
+    function GetEnumerator: IEnumerator;
+    function GetEnumeratorGeneric: IEnumerator<T>;
+
+    function IEnumerable<T>.GetEnumerator = GetEnumeratorGeneric;
   end;
 
 
@@ -191,27 +280,52 @@ type
   /// <remarks>
   ///  For internal use only. It's only in the interface section to prevent "Method of parameterized type declared in interface section must not use local symbol" error.
   /// </remarks>
-  TDaintyEnumerator<T: class> = class(TEnumerator<T>)
+  TDaintyEnumerator<T: class> = class(TInterfacedObject, IEnumerator<T>)
   private
-    FMapper: TDaintyMapper<T>;
+    FReader: TDaintyReader<T>;
     FDataSet: TDataSet;
     FCurrent: T;
-  protected
-    function DoGetCurrent: T; override;
-    function DoMoveNext: Boolean; override;
+    FOwnsCurrent: Boolean;
+    FResetPoint: TArray<Byte>;
   public
-    constructor Create(AMapper: TDaintyMapper<T>; ADataSet: TDataSet);
+    constructor Create(AReader: TDaintyReader<T>; ADataSet: TDataSet);
+    destructor Destroy; override;
+
+    function GetCurrent: TObject;
+    function GetCurrentGeneric: T;
+    function MoveNext: Boolean;
+    procedure Reset;
+
+    function IEnumerator<T>.GetCurrent = GetCurrentGeneric;
+
+    function Acquire: T;
   end;
 
 
-  TDaintyValueSetter = reference to procedure(AInstance: TObject; AField: TField);
+  /// <summary>
+  ///  Performs the mapping of the object to parameters.
+  /// </summary>
+  TDaintyWriter<T: class> = class
+  public
+    procedure ApplyParams(AValue: T); virtual; abstract;
+  end;
+
+
+
+  TDaintyFieldReaderProc = reference to procedure(AInstance: TObject; AField: TField);
+  TDaintyParamWriterProc = reference to procedure(AInstance: TObject; AParam: TParam);
+
+  TDaintyConverter = record
+    FieldReader: TDaintyFieldReaderProc;
+    ParamWriter: TDaintyParamWriterProc;
+  end;
 
 
   TDaintyRttiFieldNameMapping = record
     FieldName: string;
-    ValueSetter: TDaintyValueSetter;
+    Converter: TDaintyConverter;
 
-    constructor Create(const AFieldName: string; const AValueSetter: TDaintyValueSetter);
+    constructor Create(const AFieldName: string; const AConverter: TDaintyConverter);
   end;
 
   TDaintyRttiClassMapping = class
@@ -228,21 +342,42 @@ type
 
   TDaintyRttiFieldMapping = record
     Field: TField;
-    ValueSetter: TDaintyValueSetter;
+    Converter: TDaintyConverter;
 
-    constructor Create(const AField: TField; const AValueSetter: TDaintyValueSetter);
+    constructor Create(const AField: TField; const AConverter: TDaintyConverter);
   end;
 
 
-  TDaintyRttiMapper<T: class> = class(TDaintyMapper<T>)
+  TDaintyRttiReader<T: class> = class(TDaintyReader<T>)
   private
     FConstruct: TFunc<TObject>;
     FFieldMapping: TList<TDaintyRttiFieldMapping>;
   public
     constructor Create(AClassMapping: TDaintyRttiClassMapping; ADataSet: TDataSet);
+    destructor Destroy; override;
 
     function MapRow: T; override;
   end;
+
+
+  TDaintyRttiParamMapping = record
+    Param: TParam;
+    Converter: TDaintyConverter;
+
+    constructor Create(const AParam: TParam; const AConverter: TDaintyConverter);
+  end;
+
+
+  TDaintyRttiWriter<T: class> = class(TDaintyWriter<T>)
+  private
+    FParamMapping: TList<TDaintyRttiParamMapping>;
+  public
+    constructor Create(AClassMapping: TDaintyRttiClassMapping; AParams: TParams; AMatching: TDaintyParamsMatching);
+    destructor Destroy; override;
+
+    procedure ApplyParams(AValue: T); override;
+  end;
+
 
 
   TDaintyRttiMember = class
@@ -253,6 +388,7 @@ type
   public
     constructor Create(ARttiMember: TRttiMember);
 
+    function GetValue(AInstance: TObject): TValue; virtual; abstract;
     procedure SetValue(AInstance: TObject; const AValue: TValue); virtual; abstract;
 
     property RttiMember: TRttiMember read FRttiMember;
@@ -268,6 +404,7 @@ type
   public
     constructor Create(AField: TRttiField);
 
+    function GetValue(AInstance: TObject): TValue; override;
     procedure SetValue(AInstance: TObject; const AValue: TValue); override;
   end;
 
@@ -279,64 +416,67 @@ type
   public
     constructor Create(AProperty: TRttiProperty);
 
+    function GetValue(AInstance: TObject): TValue; override;
     procedure SetValue(AInstance: TObject; const AValue: TValue); override;
   end;
 
 
-  TDaintyAbstractValueSetterFactoryClass = class of TDaintyAbstractValueSetterFactory;
+  TDaintyRttiConverterFactoryClass = class of TDaintyRttiConverterFactory;
 
-  TDaintyAbstractValueSetterFactory = class
+  TDaintyRttiConverterFactory = class
   public
-    class function Construct(AMember: TDaintyRttiMember): TDaintyValueSetter; virtual; abstract;
+    class function Construct(AMember: TDaintyRttiMember; out AConverter: TDaintyConverter): Boolean; virtual; abstract;
   end;
 
 
   TDaintyRttiMapperFactory = class
   private type
-    TValueSetterRegistration = record
-      Factory: TDaintyAbstractValueSetterFactoryClass;
+    TConverterFactoryRegistration = record
+      Factory: TDaintyRttiConverterFactoryClass;
       Priority: Integer;
 
-      constructor Create(AFactory: TDaintyAbstractValueSetterFactoryClass; APriority: Integer);
+      constructor Create(AFactory: TDaintyRttiConverterFactoryClass; APriority: Integer);
     end;
   private class var
     SContext: TRttiContext;
     SClassMappingCacheLock: TMultiReadExclusiveWriteSynchronizer;
     SClassMappingCache: TDictionary<Pointer, TDaintyRttiClassMapping>;
-    SValueSettersLock: TMultiReadExclusiveWriteSynchronizer;
-    SValueSetters: TList<TValueSetterRegistration>;
+    SConverterFactoriesLock: TMultiReadExclusiveWriteSynchronizer;
+    SConverterFactories: TList<TConverterFactoryRegistration>;
     SMembers: TObjectList<TDaintyRttiMember>;
   private
     class function GetClassMapping<T: class>: TDaintyRttiClassMapping;
     class function GetFieldName(AMember: TRttiNamedObject): string;
-    class function GetValueSetter(AMember: TRttiMember): TDaintyValueSetter;
+    class function GetConverter(AMember: TRttiMember): TDaintyConverter;
   protected
     class procedure Initialize;
     class procedure Finalize;
   public
-    class function Construct<T: class>(ADataSet: TDataSet): TDaintyRttiMapper<T>;
+    class function ConstructReader<T: class>(ADataSet: TDataSet): TDaintyRttiReader<T>;
+    class function ConstructWriter<T: class>(AParams: TParams; AMatching: TDaintyParamsMatching): TDaintyRttiWriter<T>;
 
-    class procedure RegisterValueSetterFactory(AFactory: TDaintyAbstractValueSetterFactoryClass; APriority: Integer = 0);
-    class procedure UnregisterValueSetterFactory(AFactory: TDaintyAbstractValueSetterFactoryClass);
+    class procedure RegisterConverterFactory(AFactory: TDaintyRttiConverterFactoryClass; APriority: Integer = 0);
+    class procedure UnregisterConverterFactory(AFactory: TDaintyRttiConverterFactoryClass);
   end;
 
 
 
 implementation
 uses
+  System.StrUtils,
   System.TypInfo;
 
 
 { TDaintyDataSetHelper }
-function TDaintyDataSetHelper.Rows<T>: TEnumerable<T>;
+function TDaintyDataSetHelper.Rows<T>: IEnumerable<T>;
 begin
   Result := TDainty.Rows<T>(Self);
 end;
 
 
-function TDaintyDataSetHelper.GetMapper<T>: TDaintyMapper<T>;
+function TDaintyDataSetHelper.GetRowReader<T>: TDaintyReader<T>;
 begin
-  Result := TDainty.GetMapper<T>(Self);
+  Result := TDainty.GetRowReader<T>(Self);
 end;
 
 
@@ -346,9 +486,9 @@ begin
 end;
 
 
-function TDaintyDataSetHelper.GetFirstOrDefault<T>(const ADefault: T): T;
+function TDaintyDataSetHelper.GetFirstOrDefault<T>: T;
 begin
-  Result := TDainty.GetFirstOrDefault<T>(Self, ADefault);
+  Result := TDainty.GetFirstOrDefault<T>(Self);
 end;
 
 
@@ -358,160 +498,209 @@ begin
 end;
 
 
-function TDaintyDataSetHelper.GetSingleOrDefault<T>(const ADefault: T): T;
+function TDaintyDataSetHelper.GetSingleOrDefault<T>: T;
 begin
-  Result := TDainty.GetSingleOrDefault<T>(Self, ADefault);
+  Result := TDainty.GetSingleOrDefault<T>(Self);
 end;
+
+
+{ TDaintyParamsHelpers }
+procedure TDaintyParamsHelpers.Apply<T>(AValue: T; AMatching: TDaintyParamsMatching);
+begin
+  TDainty.ApplyParams<T>(Self, AValue, AMatching);
+end;
+
 
 
 { TDainty }
-class function TDainty.Rows<T>(ADataSet: TDataSet): TEnumerable<T>;
+class function TDainty.Rows<T>(ADataSet: TDataSet): IEnumerable<T>;
 var
-  mapper: TDaintyMapper<T>;
+  reader: TDaintyReader<T>;
 
 begin
-  mapper := GetMapper<T>(ADataSet);
-  Result := TDaintyEnumerable<T>.Create(mapper, ADataSet);
+  reader := GetRowReader<T>(ADataSet);
+  Result := TDaintyEnumerable<T>.Create(reader, ADataSet);
 end;
 
 
-class function TDainty.GetMapper<T>(ADataSet: TDataSet): TDaintyMapper<T>;
+class function TDainty.GetRowReader<T>(ADataSet: TDataSet): TDaintyReader<T>;
 begin
-  Result := TDaintyRttiMapperFactory.Construct<T>(ADataSet);
+  Result := TDaintyRttiMapperFactory.ConstructReader<T>(ADataSet);
 end;
 
 
 class function TDainty.GetFirst<T>(ADataSet: TDataSet): T;
 var
-  enumerator: TEnumerator<T>;
+  enumerator: IEnumerator<T>;
 
 begin
   enumerator := Rows<T>(ADataSet).GetEnumerator;
-  try
-    if not enumerator.MoveNext then
-      raise EDatabaseError.Create('Expected at least 1 record but none found');
 
-    Result := enumerator.Current;
-  finally
-    FreeAndNil(enumerator);
-  end;
+  if not enumerator.MoveNext then
+    raise EDatabaseError.Create('Expected at least 1 record but none found');
+
+  Result := (enumerator as TDaintyEnumerator<T>).Acquire;
 end;
 
 
-class function TDainty.GetFirstOrDefault<T>(ADataSet: TDataSet; const ADefault: T): T;
+class function TDainty.GetFirstOrDefault<T>(ADataSet: TDataSet): T;
 var
-  enumerator: TEnumerator<T>;
+  enumerator: IEnumerator<T>;
 
 begin
   enumerator := Rows<T>(ADataSet).GetEnumerator;
-  try
-    if enumerator.MoveNext then
-      Result := enumerator.Current
-    else
-      Result := ADefault;
-  finally
-    FreeAndNil(enumerator);
-  end;
+
+  if enumerator.MoveNext then
+    Result := (enumerator as TDaintyEnumerator<T>).Acquire
+  else
+    Result := nil;
 end;
 
 
 class function TDainty.GetSingle<T>(ADataSet: TDataSet): T;
 var
-  enumerator: TEnumerator<T>;
+  enumerator: IEnumerator<T>;
 
 begin
   enumerator := Rows<T>(ADataSet).GetEnumerator;
-  try
-    if not enumerator.MoveNext then
-      raise EDatabaseError.Create('Expected 1 record but none found');
 
-    Result := enumerator.Current;
+  if not enumerator.MoveNext then
+    raise EDatabaseError.Create('Expected 1 record but none found');
 
-    if enumerator.MoveNext then
-      raise EDatabaseError.Create('Expected 1 record but more found');
-  finally
-    FreeAndNil(enumerator);
+  Result := (enumerator as TDaintyEnumerator<T>).Acquire;
+
+  if enumerator.MoveNext then
+  begin
+    FreeAndNil(Result);
+    raise EDatabaseError.Create('Expected 1 record but more found');
   end;
 end;
 
 
-class function TDainty.GetSingleOrDefault<T>(ADataSet: TDataSet; const ADefault: T): T;
+class function TDainty.GetSingleOrDefault<T>(ADataSet: TDataSet): T;
 var
-  enumerator: TEnumerator<T>;
+  enumerator: IEnumerator<T>;
 
 begin
   enumerator := Rows<T>(ADataSet).GetEnumerator;
+
+  if not enumerator.MoveNext then
+    Exit(nil);
+
+  Result := (enumerator as TDaintyEnumerator<T>).Acquire;
+
+  if enumerator.MoveNext then
+    FreeAndNil(Result);
+end;
+
+
+class procedure TDainty.ApplyParams<T>(AParams: TParams; AValue: T; AMatching: TDaintyParamsMatching);
+var
+  writer: TDaintyWriter<T>;
+
+begin
+  writer := TDaintyRttiMapperFactory.ConstructWriter<T>(AParams, AMatching);
   try
-    if not enumerator.MoveNext then
-      Exit(ADefault);
-
-    Result := enumerator.Current;
-
-    if enumerator.MoveNext then
-      Exit(ADefault);
+    writer.ApplyParams(AValue);
   finally
-    FreeAndNil(enumerator);
+    FreeAndNil(writer);
   end;
 end;
+
 
 
 { TDaintyEnumerable<T> }
-constructor TDaintyEnumerable<T>.Create(AMapper: TDaintyMapper<T>; ADataSet: TDataSet);
+constructor TDaintyEnumerable<T>.Create(AReader: TDaintyReader<T>; ADataSet: TDataSet);
 begin
   inherited Create;
 
-  FMapper := AMapper;
+  FReader := AReader;
   FDataSet := ADataSet;
 end;
 
 
-function TDaintyEnumerable<T>.DoGetEnumerator: TEnumerator<T>;
+destructor TDaintyEnumerable<T>.Destroy;
 begin
-  Result := TDaintyEnumerator<T>.Create(FMapper, FDataSet);
+  FreeAndNil(FReader);
+
+  inherited Destroy;
+end;
+
+
+function TDaintyEnumerable<T>.GetEnumerator: IEnumerator;
+begin
+  Result := GetEnumeratorGeneric;
+end;
+
+function TDaintyEnumerable<T>.GetEnumeratorGeneric: IEnumerator<T>;
+begin
+  Result := TDaintyEnumerator<T>.Create(FReader, FDataSet);
 end;
 
 
 { TDaintyEnumerator<T> }
-constructor TDaintyEnumerator<T>.Create(AMapper: TDaintyMapper<T>; ADataSet: TDataSet);
+constructor TDaintyEnumerator<T>.Create(AReader: TDaintyReader<T>; ADataSet: TDataSet);
 begin
   inherited Create;
 
-  FMapper := AMapper;
+  FReader := AReader;
   FDataSet := ADataSet;
+  FResetPoint := ADataSet.GetBookmark;
+
+  FOwnsCurrent := False;
 end;
 
 
-function TDaintyEnumerator<T>.DoGetCurrent: T;
+destructor TDaintyEnumerator<T>.Destroy;
+begin
+  if FOwnsCurrent then
+    FreeAndNil(FCurrent);
+
+  inherited Destroy;
+end;
+
+
+function TDaintyEnumerator<T>.Acquire: T;
+begin
+  FOwnsCurrent := False;
+  Result := FCurrent;
+end;
+
+
+function TDaintyEnumerator<T>.GetCurrent: TObject;
+begin
+  Result := GetCurrentGeneric;
+end;
+
+
+function TDaintyEnumerator<T>.GetCurrentGeneric: T;
 begin
   Result := FCurrent;
 end;
 
 
-function TDaintyEnumerator<T>.DoMoveNext: Boolean;
+function TDaintyEnumerator<T>.MoveNext: Boolean;
 begin
   if FDataSet.Eof then
     Exit(False);
 
-  FCurrent := FMapper.MapRow;
+  if FOwnsCurrent then
+    FreeAndNil(FCurrent);
+
+  FCurrent := FReader.MapRow;
+  FOwnsCurrent := True;
   Result := True;
 
   FDataSet.Next;
 end;
 
 
-{ TDaintyRttiMapper<T> }
-constructor TDaintyRttiMapper<T>.Create(AClassMapping: TDaintyRttiClassMapping; ADataSet: TDataSet);
-var
-  fieldNameMapping: TDaintyRttiFieldNameMapping;
-
+procedure TDaintyEnumerator<T>.Reset;
 begin
-  inherited Create;
+  if FOwnsCurrent then
+    FreeAndNil(FCurrent);
 
-  FConstruct := AClassMapping.Construct;
-  FFieldMapping := TList<TDaintyRttiFieldMapping>.Create;
-
-  for fieldNameMapping in AClassMapping.FieldNameMapping do
-    FFieldMapping.Add(TDaintyRttiFieldMapping.Create(ADataSet.FieldByName(fieldNameMapping.FieldName), fieldNameMapping.ValueSetter));
+  FDataSet.GotoBookmark(FResetPoint);
 end;
 
 
@@ -539,6 +728,12 @@ begin
 end;
 
 
+function TDaintyRttiFieldMember.GetValue(AInstance: TObject): TValue;
+begin
+  Result := FField.GetValue(AInstance);
+end;
+
+
 procedure TDaintyRttiFieldMember.SetValue(AInstance: TObject; const AValue: TValue);
 begin
   FField.SetValue(AInstance, AValue);
@@ -560,6 +755,12 @@ begin
 end;
 
 
+function TDaintyRttiPropertyMember.GetValue(AInstance: TObject): TValue;
+begin
+  Result := FProperty.GetValue(AInstance);
+end;
+
+
 procedure TDaintyRttiPropertyMember.SetValue(AInstance: TObject; const AValue: TValue);
 begin
   FProperty.SetValue(AInstance, AValue);
@@ -576,72 +777,83 @@ begin
   SContext := TRttiContext.Create;
   SClassMappingCacheLock := TMultiReadExclusiveWriteSynchronizer.Create;
   SClassMappingCache := TObjectDictionary<Pointer, TDaintyRttiClassMapping>.Create([doOwnsValues]);
-  SValueSettersLock := TMultiReadExclusiveWriteSynchronizer.Create;
-  SValueSetters := TList<TValueSetterRegistration>.Create;
+  SConverterFactoriesLock := TMultiReadExclusiveWriteSynchronizer.Create;
+  SConverterFactories := TList<TConverterFactoryRegistration>.Create;
   SMembers := TObjectList<TDaintyRttiMember>.Create;
 end;
 
 
-class procedure TDaintyRttiMapperFactory.RegisterValueSetterFactory(AFactory: TDaintyAbstractValueSetterFactoryClass; APriority: Integer);
+class procedure TDaintyRttiMapperFactory.RegisterConverterFactory(AFactory: TDaintyRttiConverterFactoryClass; APriority: Integer);
 var
-  registration: TValueSetterRegistration;
+  registration: TConverterFactoryRegistration;
   registrationIndex: Integer;
 
 begin
-  { Initialization for Dainty.ValueSetter.Default runs before ours, make sure we are initialized }
+  { Initialization for Dainty.Converter.Default runs before ours, make sure we are initialized }
   Initialize;
 
-  SValueSettersLock.BeginWrite;
+  SConverterFactoriesLock.BeginWrite;
   try
-    registration := TValueSetterRegistration.Create(AFactory, APriority);
+    registration := TConverterFactoryRegistration.Create(AFactory, APriority);
 
-    for registrationIndex := 0 to Pred(SValueSetters.Count) do
-      if SValueSetters[registrationIndex].Priority <= APriority then
+    for registrationIndex := 0 to Pred(SConverterFactories.Count) do
+      if SConverterFactories[registrationIndex].Priority <= APriority then
       begin
-        SValueSetters.Insert(registrationIndex, registration);
+        SConverterFactories.Insert(registrationIndex, registration);
         Exit;
       end;
 
-    SValueSetters.Add(registration);
+    SConverterFactories.Add(registration);
   finally
-    SValueSettersLock.EndWrite;
+    SConverterFactoriesLock.EndWrite;
   end;
 end;
 
 
-class procedure TDaintyRttiMapperFactory.UnregisterValueSetterFactory(AFactory: TDaintyAbstractValueSetterFactoryClass);
+class procedure TDaintyRttiMapperFactory.UnregisterConverterFactory(AFactory: TDaintyRttiConverterFactoryClass);
 var
   registrationIndex: Integer;
 
 begin
-  SValueSettersLock.BeginWrite;
+  SConverterFactoriesLock.BeginWrite;
   try
-    for registrationIndex := Pred(SValueSetters.Count) downto 0 do
-      if SValueSetters[registrationIndex].Factory = AFactory then
-        SValueSetters.Delete(registrationIndex);
+    for registrationIndex := Pred(SConverterFactories.Count) downto 0 do
+      if SConverterFactories[registrationIndex].Factory = AFactory then
+        SConverterFactories.Delete(registrationIndex);
   finally
-    SValueSettersLock.EndWrite;
+    SConverterFactoriesLock.EndWrite;
   end;
 end;
 
 
 class procedure TDaintyRttiMapperFactory.Finalize;
 begin
-  FreeAndNil(SValueSetters);
-  FreeAndNil(SValueSettersLock);
+  FreeAndNil(SMembers);
+  FreeAndNil(SConverterFactories);
+  FreeAndNil(SConverterFactoriesLock);
   FreeAndNil(SClassMappingCache);
   FreeAndNil(SClassMappingCacheLock);
   SContext.Free;
 end;
 
 
-class function TDaintyRttiMapperFactory.Construct<T>(ADataSet: TDataSet): TDaintyRttiMapper<T>;
+class function TDaintyRttiMapperFactory.ConstructReader<T>(ADataSet: TDataSet): TDaintyRttiReader<T>;
 var
   mapping: TDaintyRttiClassMapping;
 
 begin
   mapping := GetClassMapping<T>;
-  Result := TDaintyRttiMapper<T>.Create(mapping, ADataSet);
+  Result := TDaintyRttiReader<T>.Create(mapping, ADataSet);
+end;
+
+
+class function TDaintyRttiMapperFactory.ConstructWriter<T>(AParams: TParams; AMatching: TDaintyParamsMatching): TDaintyRttiWriter<T>;
+var
+  mapping: TDaintyRttiClassMapping;
+
+begin
+  mapping := GetClassMapping<T>;
+  Result := TDaintyRttiWriter<T>.Create(mapping, AParams, AMatching);
 end;
 
 
@@ -653,7 +865,7 @@ var
   instanceClassType: TClass;
   fieldInfo: TRttiField;
   propertyInfo: TRttiProperty;
-  valueSetter: TProc<TObject, TField>;
+  converter: TDaintyConverter;
 
 begin
   SClassMappingCacheLock.BeginRead;
@@ -696,7 +908,7 @@ begin
         if not (fieldInfo.Visibility in [mvPublic, mvPublished]) then
           Continue;
 
-        Result.FieldNameMapping.Add(TDaintyRttiFieldNameMapping.Create(GetFieldName(fieldInfo), GetValueSetter(fieldInfo)));
+        Result.FieldNameMapping.Add(TDaintyRttiFieldNameMapping.Create(GetFieldName(fieldInfo), GetConverter(fieldInfo)));
       end;
 
 
@@ -708,7 +920,7 @@ begin
         if not propertyInfo.IsWritable then
           Continue;
 
-        Result.FieldNameMapping.Add(TDaintyRttiFieldNameMapping.Create(GetFieldName(propertyInfo), GetValueSetter(propertyInfo)));
+        Result.FieldNameMapping.Add(TDaintyRttiFieldNameMapping.Create(GetFieldName(propertyInfo), GetConverter(propertyInfo)));
       end;
 
       SClassMappingCache.Add(typeInfoHandle, Result);
@@ -736,10 +948,11 @@ begin
 end;
 
 
-class function TDaintyRttiMapperFactory.GetValueSetter(AMember: TRttiMember): TDaintyValueSetter;
+class function TDaintyRttiMapperFactory.GetConverter(AMember: TRttiMember): TDaintyConverter;
 var
   member: TDaintyRttiMember;
-  registration: TValueSetterRegistration;
+  registration: TConverterFactoryRegistration;
+  hasConverter: Boolean;
 
 begin
   if AMember is TRttiField then
@@ -749,22 +962,24 @@ begin
   else
     raise EInvalidOpException.CreateFmt('Member type not supported: %s', [AMember.ClassName]);
 
-  SValueSettersLock.BeginRead;
+  hasConverter := False;
+
+  SConverterFactoriesLock.BeginRead;
   try
-    for registration in SValueSetters do
+    for registration in SConverterFactories do
     begin
-      Result := registration.Factory.Construct(member);
-      if Assigned(Result) then
+      if registration.Factory.Construct(member, Result) then
       begin
+        hasConverter := True;
         SMembers.Add(member);
         Break;
       end;
     end;
   finally
-    SValueSettersLock.EndRead;
+    SConverterFactoriesLock.EndRead;
   end;
 
-  if not Assigned(Result) then
+  if not hasConverter then
   begin
     FreeAndNil(member);
     raise ENotSupportedException.CreateFmt('Member %s has unsupported type for Dainty: %d', [AMember.Name, Ord(member.RttiType.TypeKind)]);
@@ -772,16 +987,39 @@ begin
 end;
 
 
-{ TDaintyRttiMapperFactory.TValueSetterRegistration }
-constructor TDaintyRttiMapperFactory.TValueSetterRegistration.Create(AFactory: TDaintyAbstractValueSetterFactoryClass; APriority: Integer);
+{ TDaintyRttiMapperFactory.TConverterFactoryRegistration }
+constructor TDaintyRttiMapperFactory.TConverterFactoryRegistration.Create(AFactory: TDaintyRttiConverterFactoryClass; APriority: Integer);
 begin
   Factory := AFactory;
   Priority := APriority;
 end;
 
 
-{ TDaintyRttiMapper<T> }
-function TDaintyRttiMapper<T>.MapRow: T;
+{ TDaintyRttiReader<T> }
+constructor TDaintyRttiReader<T>.Create(AClassMapping: TDaintyRttiClassMapping; ADataSet: TDataSet);
+var
+  fieldNameMapping: TDaintyRttiFieldNameMapping;
+
+begin
+  inherited Create;
+
+  FConstruct := AClassMapping.Construct;
+  FFieldMapping := TList<TDaintyRttiFieldMapping>.Create;
+
+  for fieldNameMapping in AClassMapping.FieldNameMapping do
+    FFieldMapping.Add(TDaintyRttiFieldMapping.Create(ADataSet.FieldByName(fieldNameMapping.FieldName), fieldNameMapping.Converter));
+end;
+
+
+destructor TDaintyRttiReader<T>.Destroy;
+begin
+  FreeAndNil(FFieldMapping);
+
+  inherited Destroy;
+end;
+
+
+function TDaintyRttiReader<T>.MapRow: T;
 var
   fieldMapping: TDaintyRttiFieldMapping;
 
@@ -789,23 +1027,100 @@ begin
   Result := FConstruct() as T;
 
   for fieldMapping in FFieldMapping do
-    fieldMapping.ValueSetter(Result, fieldMapping.Field);
+    fieldMapping.Converter.FieldReader(Result, fieldMapping.Field);
+end;
+
+
+{ TDaintyRttiWriter<T> }
+constructor TDaintyRttiWriter<T>.Create(AClassMapping: TDaintyRttiClassMapping; AParams: TParams; AMatching: TDaintyParamsMatching);
+var
+  fieldNameMapping: TDaintyRttiFieldNameMapping;
+  remainingParams: TList<TParam>;
+  paramIndex: Integer;
+  param: TParam;
+  paramNames: string;
+
+begin
+  inherited Create;
+
+  FParamMapping := TList<TDaintyRttiParamMapping>.Create;
+  try
+    remainingParams := TList<TParam>.Create;
+    try
+      for paramIndex := 0 to Pred(AParams.Count) do
+        remainingParams.Add(AParams[paramIndex]);
+
+
+      for fieldNameMapping in AClassMapping.FieldNameMapping do
+      begin
+        param := AParams.FindParam(fieldNameMapping.FieldName);
+        if Assigned(param) then
+        begin
+          remainingParams.Remove(param);
+          FParamMapping.Add(TDaintyRttiParamMapping.Create(param, fieldNameMapping.Converter));
+        end else if AMatching in [dpmExact, dpmAllMembers] then
+          raise EProgrammerNotFound.CreateFmt('Parameter not found: %s', [fieldNameMapping.FieldName]);
+      end;
+
+
+      { Check if all parameters have a corresponding member }
+      if (AMatching in [dpmExact, dpmAllParams]) and (remainingParams.Count > 0) then
+      begin
+        paramNames := '';
+        for param in remainingParams do
+          paramNames := paramNames + IfThen(Length(paramNames) = 0, '', ', ') + param.Name;
+
+        raise EProgrammerNotFound.CreateFmt('The following parameters do not have a corresponding member: %s', [paramNames]);
+      end;
+    finally
+      FreeAndNil(remainingParams);
+    end;
+  except
+    FreeAndNil(FParamMapping);
+    raise;
+  end;
+end;
+
+
+destructor TDaintyRttiWriter<T>.Destroy;
+begin
+  FreeAndNil(FParamMapping);
+
+  inherited Destroy;
+end;
+
+
+procedure TDaintyRttiWriter<T>.ApplyParams(AValue: T);
+var
+  paramMapping: TDaintyRttiParamMapping;
+
+begin
+  for paramMapping in FParamMapping do
+    paramMapping.Converter.ParamWriter(AValue, paramMapping.Param);
 end;
 
 
 { TDaintyRttiFieldNameMapping }
-constructor TDaintyRttiFieldNameMapping.Create(const AFieldName: string; const AValueSetter: TDaintyValueSetter);
+constructor TDaintyRttiFieldNameMapping.Create(const AFieldName: string; const AConverter: TDaintyConverter);
 begin
   FieldName := AFieldName;
-  ValueSetter := AValueSetter;
+  Converter := AConverter;
 end;
 
 
 { TDaintyRttiFieldMapping }
-constructor TDaintyRttiFieldMapping.Create(const AField: TField; const AValueSetter: TDaintyValueSetter);
+constructor TDaintyRttiFieldMapping.Create(const AField: TField; const AConverter: TDaintyConverter);
 begin
   Field := AField;
-  ValueSetter := AValueSetter;
+  Converter := AConverter;
+end;
+
+
+{ TDaintyRttiParamMapping }
+constructor TDaintyRttiParamMapping.Create(const AParam: TParam; const AConverter: TDaintyConverter);
+begin
+  Param := AParam;
+  Converter := AConverter;
 end;
 
 

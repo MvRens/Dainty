@@ -1,4 +1,4 @@
-unit DaintyTests;
+unit DaintyFieldsTests;
 
 interface
 uses
@@ -11,7 +11,7 @@ uses
 
 
 type
-  TDaintyTest = class(TTestCase)
+  TDaintyFieldsTest = class(TTestCase)
   private
     FDataSet: TClientDataSet;
   protected
@@ -45,8 +45,8 @@ uses
   System.SysUtils;
 
 
-{ TDaintyTest }
-procedure TDaintyTest.SetUp;
+{ TDaintyFieldsTest }
+procedure TDaintyFieldsTest.SetUp;
 begin
   inherited SetUp;
 
@@ -54,7 +54,7 @@ begin
 end;
 
 
-procedure TDaintyTest.TearDown;
+procedure TDaintyFieldsTest.TearDown;
 begin
   FreeAndNil(FDataSet);
 
@@ -73,7 +73,7 @@ type
   end;
 
 
-procedure TDaintyTest.SimpleTypes;
+procedure TDaintyFieldsTest.SimpleTypes;
 
   procedure AddRow(const AStringValue: string; AIntegerValue: Integer; ADateTimeValue: TDateTime; ABooleanValue: Boolean; AFloatValue: Double);
   begin
@@ -140,7 +140,7 @@ type
   end;
 
 
-procedure TDaintyTest.FillTestData(ARowCount: Integer);
+procedure TDaintyFieldsTest.FillTestData(ARowCount: Integer);
 var
   rowNumber: Integer;
 
@@ -160,31 +160,37 @@ begin
 end;
 
 
-procedure TDaintyTest.GetFirst;
+procedure TDaintyFieldsTest.GetFirst;
 var
   row: TTestRow;
 
 begin
   FillTestData(1);
   row := DataSet.GetFirst<TTestRow>;
-
-  CheckEquals(1, row.RowNumber);
+  try
+    CheckEquals(1, row.RowNumber);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
-procedure TDaintyTest.GetFirstMultipleRows;
+procedure TDaintyFieldsTest.GetFirstMultipleRows;
 var
   row: TTestRow;
 
 begin
   FillTestData(2);
   row := DataSet.GetFirst<TTestRow>;
-
-  CheckEquals(1, row.RowNumber);
+  try
+    CheckEquals(1, row.RowNumber);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
-procedure TDaintyTest.GetFirstNoData;
+procedure TDaintyFieldsTest.GetFirstNoData;
 begin
   FillTestData(0);
   ExpectedException := EDatabaseError;
@@ -192,29 +198,33 @@ begin
 end;
 
 
-procedure TDaintyTest.GetFirstOrDefault;
+procedure TDaintyFieldsTest.GetFirstOrDefault;
 var
   row: TTestRow;
 
 begin
   FillTestData(0);
-  row := DataSet.GetFirstOrDefault<TTestRow>(nil);
+  row := DataSet.GetFirstOrDefault<TTestRow>;
   CheckNull(row);
 end;
 
 
-procedure TDaintyTest.GetSingle;
+procedure TDaintyFieldsTest.GetSingle;
 var
   row: TTestRow;
 
 begin
   FillTestData(1);
   row := DataSet.GetSingle<TTestRow>;
-  CheckEquals(1, row.RowNumber);
+  try
+    CheckEquals(1, row.RowNumber);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
-procedure TDaintyTest.GetSingleMultipleRows;
+procedure TDaintyFieldsTest.GetSingleMultipleRows;
 begin
   ExpectedException := EDatabaseError;
   FillTestData(2);
@@ -222,7 +232,7 @@ begin
 end;
 
 
-procedure TDaintyTest.GetSingleNoData;
+procedure TDaintyFieldsTest.GetSingleNoData;
 begin
   ExpectedException := EDatabaseError;
   FillTestData(0);
@@ -230,24 +240,28 @@ begin
 end;
 
 
-procedure TDaintyTest.GetSingleOrDefaultMultipleRows;
+procedure TDaintyFieldsTest.GetSingleOrDefaultMultipleRows;
 var
   row: TTestRow;
 
 begin
   FillTestData(2);
-  row := DataSet.GetSingleOrDefault<TTestRow>(nil);
-  CheckNull(row);
+  row := DataSet.GetSingleOrDefault<TTestRow>;
+  try
+    CheckNull(row);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
-procedure TDaintyTest.GetSingleOrDefaultNoData;
+procedure TDaintyFieldsTest.GetSingleOrDefaultNoData;
 var
   row: TTestRow;
 
 begin
   FillTestData(0);
-  row := DataSet.GetSingleOrDefault<TTestRow>(nil);
+  row := DataSet.GetSingleOrDefault<TTestRow>;
   CheckNull(row);
 end;
 
@@ -260,7 +274,7 @@ type
   end;
 
 
-procedure TDaintyTest.FieldNameAttribute;
+procedure TDaintyFieldsTest.FieldNameAttribute;
 var
   row: TAttributeTestRow;
 
@@ -274,7 +288,11 @@ begin
   DataSet.Post;
 
   row := DataSet.GetFirst<TAttributeTestRow>;
-  CheckEquals('Hello world!', row.StringField);
+  try
+    CheckEquals('Hello world!', row.StringField);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
@@ -289,7 +307,7 @@ type
   end;
 
 
-procedure TDaintyTest.FieldNameAttributeProperty;
+procedure TDaintyFieldsTest.FieldNameAttributeProperty;
 var
   row: TPropertyAttributeTestRow;
 
@@ -303,14 +321,18 @@ begin
   DataSet.Post;
 
   row := DataSet.GetFirst<TPropertyAttributeTestRow>;
-  CheckEquals('Hello world!', row.StringField);
+  try
+    CheckEquals('Hello world!', row.StringField);
+  finally
+    FreeAndNil(row);
+  end;
 end;
 
 
 
 
 initialization
-  RegisterTest(TDaintyTest.Suite);
+  RegisterTest(TDaintyFieldsTest.Suite);
 
 end.
 
