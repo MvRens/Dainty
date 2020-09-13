@@ -69,6 +69,9 @@ type
   ParamName = FieldName;
 
 
+  TDaintyOrigin = (doFirst, doCurrent);
+
+
   /// <summary>
   ///  Allows for direct calls to TDainty methods from any DataSet instance, for example
   ///  DataSet.Rows<> or DataSet.GetFirstOrDefault<>.
@@ -84,9 +87,19 @@ type
     ///  object for each row.
     /// </summary>
     /// <remarks>
+    ///  The objects returns are owned by the enumerable, and destroyed during and after the loop.
+    /// </remarks>
+    function Rows<T: class>(AOrigin: TDaintyOrigin = doFirst): IEnumerable<T>;
+
+    /// <summary>
+    ///  Returns the DataSet rows as a list of objects.
+    /// </summary>
+    /// <remarks>
+    ///  The caller is responsible for freeing the list.
     ///  Note that the DataSet is not reset to First and will instead start at the current record.
     /// </remarks>
-    function Rows<T: class>: IEnumerable<T>;
+    function List<T: class>(AOrigin: TDaintyOrigin = doFirst): TList<T>;
+
 
     /// <summary>
     ///  Provides access to the reader which allows control over the DataSet loop.
@@ -101,7 +114,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    function GetFirst<T: class>: T;
+    function GetFirst<T: class>(AOrigin: TDaintyOrigin = doFirst): T;
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Returns nil if no row is active.
@@ -109,7 +122,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    function GetFirstOrDefault<T: class>: T;
+    function GetFirstOrDefault<T: class>(AOrigin: TDaintyOrigin = doFirst): T;
 
 
     /// <summary>
@@ -119,7 +132,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    function GetSingle<T: class>: T;
+    function GetSingle<T: class>(AOrigin: TDaintyOrigin = doFirst): T;
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Returns nil if no row is active
@@ -128,7 +141,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    function GetSingleOrDefault<T: class>: T;
+    function GetSingleOrDefault<T: class>(AOrigin: TDaintyOrigin = doFirst): T;
   end;
 
 
@@ -179,15 +192,28 @@ type
   ///  Provides row to object mapping functionality. Usually accessed using the TDaintyDataSetHelper.
   /// </summary>
   TDainty = class
+  protected
+    class procedure GotoOrigin(ADataSet: TDataSet; AOrigin: TDaintyOrigin);
   public
     /// <summary>
     ///  Returns a typed enumerable which iterates the DataSet and returns the mapped
     ///  object for each row.
     /// </summary>
     /// <remarks>
+    ///  The objects returns are owned by the enumerable, and destroyed during and after the loop.
     ///  Note that the DataSet is not reset to First and will instead start at the current record.
     /// </remarks>
-    class function Rows<T: class>(ADataSet: TDataSet): IEnumerable<T>;
+    class function Rows<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): IEnumerable<T>;
+
+    /// <summary>
+    ///  Returns the DataSet rows as a list of objects.
+    /// </summary>
+    /// <remarks>
+    ///  The caller is responsible for freeing the list.
+    ///  Note that the DataSet is not reset to First and will instead start at the current record.
+    /// </remarks>
+    class function List<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): TList<T>;
+
 
     /// <summary>
     ///  Provides access to the mapper which allows control over the DataSet loop.
@@ -202,7 +228,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    class function GetFirst<T: class>(ADataSet: TDataSet): T;
+    class function GetFirst<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): T;
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Returns nil if no row is active.
@@ -210,7 +236,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    class function GetFirstOrDefault<T: class>(ADataSet: TDataSet): T;
+    class function GetFirstOrDefault<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): T;
 
 
     /// <summary>
@@ -220,7 +246,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    class function GetSingle<T: class>(ADataSet: TDataSet): T;
+    class function GetSingle<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): T;
 
     /// <summary>
     ///  Returns the current row mapped to the specified class. Returns nil if no row is active
@@ -229,7 +255,7 @@ type
     /// <remarks>
     ///  The caller must Free the returned object.
     /// </remarks>
-    class function GetSingleOrDefault<T: class>(ADataSet: TDataSet): T;
+    class function GetSingleOrDefault<T: class>(ADataSet: TDataSet; AOrigin: TDaintyOrigin = doFirst): T;
 
 
     /// <summary>
@@ -468,9 +494,15 @@ uses
 
 
 { TDaintyDataSetHelper }
-function TDaintyDataSetHelper.Rows<T>: IEnumerable<T>;
+function TDaintyDataSetHelper.Rows<T>(AOrigin: TDaintyOrigin): IEnumerable<T>;
 begin
   Result := TDainty.Rows<T>(Self);
+end;
+
+
+function TDaintyDataSetHelper.List<T>(AOrigin: TDaintyOrigin): TList<T>;
+begin
+  Result := TDainty.List<T>(Self, AOrigin);
 end;
 
 
@@ -480,25 +512,25 @@ begin
 end;
 
 
-function TDaintyDataSetHelper.GetFirst<T>: T;
+function TDaintyDataSetHelper.GetFirst<T>(AOrigin: TDaintyOrigin): T;
 begin
   Result := TDainty.GetFirst<T>(Self);
 end;
 
 
-function TDaintyDataSetHelper.GetFirstOrDefault<T>: T;
+function TDaintyDataSetHelper.GetFirstOrDefault<T>(AOrigin: TDaintyOrigin): T;
 begin
   Result := TDainty.GetFirstOrDefault<T>(Self);
 end;
 
 
-function TDaintyDataSetHelper.GetSingle<T>: T;
+function TDaintyDataSetHelper.GetSingle<T>(AOrigin: TDaintyOrigin): T;
 begin
   Result := TDainty.GetSingle<T>(Self);
 end;
 
 
-function TDaintyDataSetHelper.GetSingleOrDefault<T>: T;
+function TDaintyDataSetHelper.GetSingleOrDefault<T>(AOrigin: TDaintyOrigin): T;
 begin
   Result := TDainty.GetSingleOrDefault<T>(Self);
 end;
@@ -513,13 +545,36 @@ end;
 
 
 { TDainty }
-class function TDainty.Rows<T>(ADataSet: TDataSet): IEnumerable<T>;
+class function TDainty.Rows<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): IEnumerable<T>;
 var
   reader: TDaintyReader<T>;
 
 begin
+  GotoOrigin(ADataSet, AOrigin);
   reader := GetRowReader<T>(ADataSet);
   Result := TDaintyEnumerable<T>.Create(reader, ADataSet);
+end;
+
+
+class function TDainty.List<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): TList<T>;
+var
+  reader: TDaintyReader<T>;
+
+begin
+  GotoOrigin(ADataSet, AOrigin);
+  reader := GetRowReader<T>(ADataSet);
+
+  Result := TObjectList<T>.Create;
+  try
+    while not ADataSet.Eof do
+    begin
+      Result.Add(reader.MapRow);
+      ADataSet.Next;
+    end;
+  except
+    FreeAndNil(Result);
+    raise;
+  end;
 end;
 
 
@@ -529,11 +584,12 @@ begin
 end;
 
 
-class function TDainty.GetFirst<T>(ADataSet: TDataSet): T;
+class function TDainty.GetFirst<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): T;
 var
   enumerator: IEnumerator<T>;
 
 begin
+  GotoOrigin(ADataSet, AOrigin);
   enumerator := Rows<T>(ADataSet).GetEnumerator;
 
   if not enumerator.MoveNext then
@@ -543,7 +599,7 @@ begin
 end;
 
 
-class function TDainty.GetFirstOrDefault<T>(ADataSet: TDataSet): T;
+class function TDainty.GetFirstOrDefault<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): T;
 var
   enumerator: IEnumerator<T>;
 
@@ -557,11 +613,12 @@ begin
 end;
 
 
-class function TDainty.GetSingle<T>(ADataSet: TDataSet): T;
+class function TDainty.GetSingle<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): T;
 var
   enumerator: IEnumerator<T>;
 
 begin
+  GotoOrigin(ADataSet, AOrigin);
   enumerator := Rows<T>(ADataSet).GetEnumerator;
 
   if not enumerator.MoveNext then
@@ -577,11 +634,12 @@ begin
 end;
 
 
-class function TDainty.GetSingleOrDefault<T>(ADataSet: TDataSet): T;
+class function TDainty.GetSingleOrDefault<T>(ADataSet: TDataSet; AOrigin: TDaintyOrigin): T;
 var
   enumerator: IEnumerator<T>;
 
 begin
+  GotoOrigin(ADataSet, AOrigin);
   enumerator := Rows<T>(ADataSet).GetEnumerator;
 
   if not enumerator.MoveNext then
@@ -605,6 +663,13 @@ begin
   finally
     FreeAndNil(writer);
   end;
+end;
+
+
+class procedure TDainty.GotoOrigin(ADataSet: TDataSet; AOrigin: TDaintyOrigin);
+begin
+  if AOrigin = doFirst then
+    ADataSet.First;
 end;
 
 

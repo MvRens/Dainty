@@ -1,6 +1,8 @@
 __history
 Win32
+Docs/_build
 
 *.local
 *.identcache
 *.res
+*.sublime-workspace
