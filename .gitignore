@@ -1,6 +1,6 @@
 __history
 Win32
-Docs/_build
+docs/_build
 
 *.local
 *.identcache
